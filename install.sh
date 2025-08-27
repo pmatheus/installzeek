@@ -82,8 +82,9 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   zeek zeek-core libpcap0.8 libmaxminddb0 libmaxminddb-dev geoipupdate
 
 # Quick sanity check: ensure Zeek has GeoIP support (Zeek 6.2+ exposes this)
-if command -v zeek-config >/dev/null 2>&1; then
-  if zeek-config --have-geoip 2>/dev/null | grep -q "yes"; then
+ZEEK_CONFIG="$ZEEK_PREFIX/bin/zeek-config"
+if [[ -x "$ZEEK_CONFIG" ]]; then
+  if "$ZEEK_CONFIG" --have-geoip 2>/dev/null | grep -q "yes"; then
     log "Zeek compiled with GeoIP support: OK"
   else
     warn "Zeek reports no GeoIP support. (OBS packages should have it.)"
@@ -133,6 +134,14 @@ if ! command -v zkg >/dev/null 2>&1; then
   ln -sf "$ZEEK_PREFIX/bin/zkg" /usr/local/bin/zkg || true
 fi
 
+# Also add zeek and zeek-config to PATH for convenience
+if ! command -v zeek >/dev/null 2>&1; then
+  ln -sf "$ZEEK_PREFIX/bin/zeek" /usr/local/bin/zeek || true
+fi
+if ! command -v zeek-config >/dev/null 2>&1; then
+  ln -sf "$ZEEK_PREFIX/bin/zeek-config" /usr/local/bin/zeek-config || true
+fi
+
 log "Installing geoip-conn package with zkg..."
 # Initialize zkg if first run; skip tests for speed & headless envs.
 zkg autoconfig || true
@@ -141,8 +150,9 @@ zkg install --force --skiptests geoip-conn || true
 # Load the package from local.zeek (zkg installs under packages/)
 append_once "@load packages/geoip-conn" "$LOCAL_ZEEK"
 
-# Optional: JSON logs are often easier downstream; uncomment if you prefer JSON
-# append_once "redef LogAscii::use_json = T;" "$LOCAL_ZEEK"
+# Configure Zeek to output logs in JSON format (easier to parse)
+log "Configuring JSON log output format..."
+append_once "@load policy/tuning/json-logs.zeek" "$LOCAL_ZEEK"
 
 # --------------------------
 # 6) Configure interface (node.cfg)
@@ -168,15 +178,13 @@ EOF
 # 7) Deploy Zeek
 # --------------------------
 log "Deploying Zeek via zeekctl..."
-pushd "$ZEEK_PREFIX" >/dev/null
-./bin/zeekctl deploy || die "zeekctl deploy failed"
-popd >/dev/null
+"$ZEEK_PREFIX/bin/zeekctl" deploy || die "zeekctl deploy failed"
 
 # --------------------------
 # 8) Smoke tests
 # --------------------------
 log "Running quick GeoIP lookup test..."
-if zeek -e 'print lookup_location(8.8.8.8);' 2>&1 | grep -qi "Failed to open GeoIP"; then
+if "$ZEEK_PREFIX/bin/zeek" -e 'print lookup_location(8.8.8.8);' 2>&1 | grep -qi "Failed to open GeoIP"; then
   warn "GeoIP DB not found by Zeek. Ensure .mmdb files exist in $MMDB_DIR and Zeek has read access."
 else
   log "GeoIP lookup works."
