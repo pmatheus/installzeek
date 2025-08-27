@@ -12,6 +12,9 @@ MAXMIND_ACCOUNT_ID="${MAXMIND_ACCOUNT_ID:-}"
 MAXMIND_LICENSE_KEY="${MAXMIND_LICENSE_KEY:-}"
 MMDB_DIR="/usr/share/GeoIP"
 
+# Zeek installation prefix (OBS packages install to /opt/zeek)
+ZEEK_PREFIX="/opt/zeek"
+
 ZEEK_REPO_LIST="/etc/apt/sources.list.d/security:zeek.list"
 ZEEK_REPO_URL="http://download.opensuse.org/repositories/security:/zeek/xUbuntu_24.04/"
 ZEEK_KEY_DST="/etc/apt/trusted.gpg.d/security_zeek.gpg"
@@ -118,8 +121,7 @@ fi
 # --------------------------
 # 5) Configure Zeek mmdb directory & geo enrichment for conn.log
 # --------------------------
-# Zeek site config path (OBS packages install to /opt/zeek)
-ZEEK_PREFIX="/opt/zeek"
+# Zeek site config path
 SITE_DIR="$ZEEK_PREFIX/share/zeek/site"
 LOCAL_ZEEK="$SITE_DIR/local.zeek"
 
